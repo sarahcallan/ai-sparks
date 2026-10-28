@@ -425,10 +425,33 @@ body.guide-open .panel { height: 40vh; max-height: none; }
     else if (e.key === 'g' || e.key === 'G' || e.key === 'n' || e.key === 'N') { toggleNotes(); }
   });
 
+  var audioCtx = null;
+  function unlockAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) {}
+  }
+  function ding() {
+    if (!audioCtx) return;
+    try {
+      var now = audioCtx.currentTime;
+      [880, 1320].forEach(function (freq, k) {
+        var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(k === 0 ? 0.35 : 0.15, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 1.7);
+      });
+    } catch (e) {}
+  }
   function fmt(s) { var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
   document.querySelectorAll('.timer').forEach(function (btn) {
     var total = parseInt(btn.getAttribute('data-seconds'), 10), left = total, id = null;
     btn.addEventListener('click', function () {
+      unlockAudio();
       if (id || btn.classList.contains('up')) {
         clearInterval(id); id = null; left = total; btn.style.setProperty('--p', '0%');
         btn.classList.remove('running', 'up'); btn.textContent = 'Start ' + fmt(total); return;
@@ -436,7 +459,7 @@ body.guide-open .panel { height: 40vh; max-height: none; }
       btn.classList.add('running'); btn.textContent = fmt(left);
       id = setInterval(function () {
         left -= 1;
-        if (left <= 0) { clearInterval(id); id = null; btn.classList.remove('running'); btn.classList.add('up'); btn.textContent = 'Time'; }
+        if (left <= 0) { clearInterval(id); id = null; btn.classList.remove('running'); btn.classList.add('up'); btn.textContent = 'Time'; ding(); }
         else { btn.textContent = fmt(left); btn.style.setProperty('--p', ((total - left) / total * 100) + '%'); }
       }, 1000);
     });
